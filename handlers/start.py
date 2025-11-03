@@ -18,6 +18,8 @@ redis = get_redis_client()
 
 router = Router()
 
+_tf = TimezoneFinder(in_memory=True)
+
 @router.message(CommandStart())
 async def start_cmd(msg: Message, state: FSMContext):
     async with AsyncSessionLocal() as conn:
@@ -51,8 +53,8 @@ async def set_location(msg: Message, state: FSMContext):
                 lat = msg.location.latitude
                 lon = msg.location.longitude
 
-                tf = TimezoneFinder()
-                timezone = tf.timezone_at(lat=lat, lng=lon)
+
+                timezone = _tf.timezone_at(lat=lat, lng=lon)
                 await msg.answer(f"{timezone}", reply_markup=ReplyKeyboardRemove())
                 await state.clear()
                 user = User(tg_id=msg.from_user.id, lang_code=msg.from_user.language_code, timezone=timezone)

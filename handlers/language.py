@@ -11,9 +11,9 @@ from sqlalchemy import select
 
 from untils.redis_db import get_redis_client
 
-redis_client = get_redis_client()
-
 router = Router()
+
+redis_client = get_redis_client()
 
 AVAILABLE_LANGS = {
     "en": "English",
@@ -23,6 +23,10 @@ AVAILABLE_LANGS = {
 
 @router.message(Command("language"))
 async def choose_language(msg: Message):
+    global redis_client
+    if not redis_client:
+        redis_client = get_redis_client()
+
     async with AsyncSessionLocal() as conn:
         res = await conn.execute(select(User).where(User.tg_id == msg.from_user.id))
 

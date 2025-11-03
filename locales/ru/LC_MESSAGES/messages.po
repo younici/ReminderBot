@@ -16,18 +16,39 @@ msgstr ""
 "Generated-By: Babel 2.17.0\n"
 
 msgid "GREETING"
-msgstr ""
-"Здравствуйте\n"
-"этот бот создан для напоминаний, создайте напоминание с помощи команды /remind <text>; time\n"
-"к примеру /remind пойти в магазин; 23.12 12:00\n"
-"для вызова списка команд /help"
+msgstr "Здравствуйте! Этот бот помогает создавать напоминания. Используйте /remind <текст>; время, чтобы добавить новое."
+
+msgid "SEND_LOCATION"
+msgstr "Отправить локацию"
 
 msgid "HELP_ANSWER"
 msgstr ""
-"remind - команда для создания напоминания - /remind <text>; time\n"
-"пример - /remind пойти в магазин; 23.12 12:00\n"
-"/reminds_list - команда для получения списка активных напоминаний\n"
-"/dell_remind <id> - удаляет напоминание по указанному айдишнику (его можно получить с команды /reminds_list)"
+"Команды:\n"
+"/remind <текст>; время – создаёт напоминание (например, /remind купить молоко; 23.12 12:00)"
+
+msgid "USER_NOT_REGISTERED"
+msgstr "Пожалуйста, сначала пройдите регистрацию командой /start."
+
+msgid "CHOOSE_LANGUAGE"
+msgstr "Выберите предпочитаемый язык"
+
+msgid "LANGUAGE_CHANGED"
+msgstr "Язык успешно обновлён."
 
 msgid "REMIND_CMD_ERR"
-msgstr "Введите текст фразы а так же время, сначала текст а потом время в формате dd.mm H:M (к примеру 21.12 12:00) в конце фразу должен лежать разделитель ;"
+msgstr "Используйте формат /remind <текст>; dd.mm HH:MM"
+
+msgid "REMIND_TIME_INCORRECT"
+msgstr "Время напоминания должно быть в будущем."
+
+msgid "REMIND_ADDED"
+msgstr "Напоминание сохранено."
+
+msgid "ALREADY_REGISTERED"
+msgstr "Вы уже зарегистрированы."
+
+msgid "GET_LOCATION_ERR"
+msgstr "Не удалось получить локацию. Попробуйте снова."
+
+msgid "LANGUAGE_NOT_SUPPORTED"
+msgstr "Этот язык не поддерживается."

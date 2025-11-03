@@ -15,18 +15,39 @@ msgstr ""
 "Generated-By: Babel 2.17.0\n"
 
 msgid "GREETING"
-msgstr ""
-"Hello"
-"this bot is designed for reminders, create a reminder using the command /remind <text>; time\n"
-"for example /remind go to the store; 23.12 12:00\n"
-"to call the list of commands /help"
+msgstr "Hello! This bot helps you create reminders. Use /remind <text>; time to add a new one."
+
+msgid "SEND_LOCATION"
+msgstr "Send location"
 
 msgid "HELP_ANSWER"
 msgstr ""
-"remind - command to create a reminder - /remind <text>; time\n"
-"example - /remind go to the store; 23.12 12:00\n"
-"/reminds_list - command to get a list of active reminders\n"
-"/dell_remind <id> - deletes a reminder by the specified ID (you can get it from the /reminds_list command)"
+"Commands:\n"
+"/remind <text>; time – creates a reminder (e.g., /remind buy milk; 23.12 12:00)"
+
+msgid "USER_NOT_REGISTERED"
+msgstr "Please register first using the /start command."
+
+msgid "CHOOSE_LANGUAGE"
+msgstr "Choose your preferred language"
+
+msgid "LANGUAGE_CHANGED"
+msgstr "Language updated successfully."
 
 msgid "REMIND_CMD_ERR"
-msgstr "Please enter the reminder text and the time. The text must be followed by a semicolon ';' and then the time in dd.mm H:M format (e.g., 21.12 12:00)."
+msgstr "Please use the format: /remind <text>; dd.mm HH:MM"
+
+msgid "REMIND_TIME_INCORRECT"
+msgstr "The reminder time must be in the future."
+
+msgid "REMIND_ADDED"
+msgstr "Reminder saved."
+
+msgid "ALREADY_REGISTERED"
+msgstr "You are already registered."
+
+msgid "GET_LOCATION_ERR"
+msgstr "Failed to get location. Please try again."
+
+msgid "LANGUAGE_NOT_SUPPORTED"
+msgstr "This language is not supported."

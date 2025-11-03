@@ -14,18 +14,39 @@ msgstr ""
 "Generated-By: Babel 2.17.0\n"
 
 msgid "GREETING"
-msgstr ""
-"Вітаю\n"
-"цей бот створений для нагадувань, створіть нагадування за допомогою команди /remind <text>; time\n"
-"наприклад /remind піти в магазин; 23.12 12:00\n"
-"Для виклику списку команд /help"
+msgstr "Вітаю! Цей бот допомагає створювати нагадування. Використовуйте /remind <текст>; час, щоб додати нове."
+
+msgid "SEND_LOCATION"
+msgstr "Надіслати локацію"
 
 msgid "HELP_ANSWER"
 msgstr ""
-"remind - команда для створення нагадування - /remind <text>; time\n"
-"приклад - /remind піти в магазин; 23.12 12:00\n"
-"/reminds_list - команда для отримання списку активних нагадувань\n"
-"/dell_remind <id> - видаляє нагадування за вказаним ID (його можна отримати з команди /reminds_list)\n"
+"Команди:\n"
+"/remind <текст>; час – створює нагадування (наприклад, /remind купити молоко; 23.12 12:00)"
+
+msgid "USER_NOT_REGISTERED"
+msgstr "Будь ласка, спочатку зареєструйтеся за допомогою команди /start."
+
+msgid "CHOOSE_LANGUAGE"
+msgstr "Оберіть бажану мову"
+
+msgid "LANGUAGE_CHANGED"
+msgstr "Мову успішно оновлено."
 
 msgid "REMIND_CMD_ERR"
-msgstr "Введіть текст нагадування, а також час. Спочатку текст, а потім час у форматі dd.mm H:M (наприклад, 21.12 12:00). Між ними має бути розділювач ';'."
+msgstr "Використовуйте формат /remind <текст>; dd.mm HH:MM"
+
+msgid "REMIND_TIME_INCORRECT"
+msgstr "Час нагадування має бути в майбутньому."
+
+msgid "REMIND_ADDED"
+msgstr "Нагадування збережено."
+
+msgid "ALREADY_REGISTERED"
+msgstr "Ви вже зареєстровані."
+
+msgid "GET_LOCATION_ERR"
+msgstr "Не вдалося отримати локацію. Спробуйте ще раз."
+
+msgid "LANGUAGE_NOT_SUPPORTED"
+msgstr "Ця мова не підтримується." у форматі dd.mm H:M (наприклад, 21.12 12:00). Між ними має бути розділювач ';'."
