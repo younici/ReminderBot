@@ -41,6 +41,10 @@ async def start_cmd(msg: Message, state: FSMContext):
 
 @router.message(Command("help"))
 async def help_cmd(msg: Message):
+    global redis
+    if not redis:
+        redis = get_redis_client()
+
     await msg.answer(_("HELP_ANSWER", locale=await redis.get(f"user:{msg.from_user.id}:lang")))
 
 @router.message(RegisterStates.location)

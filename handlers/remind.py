@@ -10,7 +10,7 @@ from untils.i18n import _
 from db.orm.models.user import User
 from db.orm.models.remind_quote import QuoteRemind
 from db.orm.session import AsyncSessionLocal
-from sqlalchemy import select
+from sqlalchemy import select, and_
 from sqlalchemy.orm import selectinload
 
 from untils.redis_db import get_redis_client
@@ -52,12 +52,23 @@ async def remind_cmd(msg: Message):
             await msg.answer(_("REMIND_TIME_INCORRECT", locale=user.lang_code))
             return
 
-        remind = QuoteRemind(user_id=user.id,
+        new_remind = QuoteRemind(user_id=user.id,
                             time=utc_time,
                             timezone=user.timezone,
                             text=remind_text)
 
-        conn.add(remind)
+        res = await conn.execute(select(QuoteRemind).where(
+            and_(
+                QuoteRemind.user_id == user.id,
+                QuoteRemind.text == new_remind.text,
+                QuoteRemind.time == new_remind.time)
+        ))
+
+        if res.scalar_one_or_none():
+            await msg.answer(_("REMIND_EXIST", locale=user.lang_code))
+            return
+
+        conn.add(new_remind)
         await conn.commit()
         await msg.answer(_(f"REMIND_ADDED", locale=user.lang_code))
 
