@@ -12,6 +12,9 @@ from sqlalchemy import select
 from untils.i18n import _
 
 from states.register_states import RegisterStates
+from untils.redis_db import get_redis_client
+
+redis = get_redis_client()
 
 router = Router()
 
@@ -32,11 +35,11 @@ async def start_cmd(msg: Message, state: FSMContext):
             await msg.answer(_("GREETING"), reply_markup=kb)
             await state.set_state(RegisterStates.location)
         else:
-            await msg.answer(_("GREETING"))
+            await msg.answer(_("GREETING", locale=user.lang_code))
 
 @router.message(Command("help"))
 async def help_cmd(msg: Message):
-    await msg.answer(_("HELP_ANSWER"))
+    await msg.answer(_("HELP_ANSWER", locale=await redis.get(f"user:{msg.from_user.id}:lang")))
 
 @router.message(RegisterStates.location)
 async def set_location(msg: Message, state: FSMContext):
@@ -54,9 +57,11 @@ async def set_location(msg: Message, state: FSMContext):
                 await state.clear()
                 user = User(tg_id=msg.from_user.id, lang_code=msg.from_user.language_code, timezone=timezone)
 
+                await redis.set(f"user:{msg.from_user.id}:lang", msg.from_user.language_code)
+
                 conn.add(user)
                 await conn.commit()
             else:
-                await msg.answer(_("ALREADY_REGISTERED"), reply_markup=ReplyKeyboardRemove())
+                await msg.answer(_("ALREADY_REGISTERED", locale=usr.lang_code), reply_markup=ReplyKeyboardRemove())
     else:
-        await msg.answer(_("GET_LOCATION_ERR"))
+        await msg.answer(_("GET_LOCATION_ERR"), await redis.get(f"user:{msg.from_user.id}:lang"))

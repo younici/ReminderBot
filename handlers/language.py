@@ -29,15 +29,13 @@ async def choose_language(msg: Message):
         user = res.scalar_one_or_none()
 
         if user:
-            lang_code = await redis_client.get(f"user:{msg.from_user.id}:lang") or user.lang_code or "en"
-
             builder = InlineKeyboardBuilder()
             for code, name in AVAILABLE_LANGS.items():
                 builder.add(InlineKeyboardButton(text=name, callback_data=f"lang_{code}"))
             builder.adjust(1)
 
             await msg.answer(
-                text=_("CHOOSE_LANGUAGE", locale=lang_code),
+                text=_("CHOOSE_LANGUAGE", locale=user.lang_code),
                 reply_markup=builder.as_markup()
             )
         else:

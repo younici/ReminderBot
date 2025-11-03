@@ -12,8 +12,6 @@ async def init_redis():
     global _redis_client
     redis_url = os.getenv("REDIS_URL")
 
-    print(f"redis url {redis_url}")
-
     _redis_client = redis.from_url(redis_url, decode_responses=True)
 
     try:
