@@ -3,7 +3,7 @@ from aiogram.filters import Command, CommandStart
 from aiogram.types import Message, ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.fsm.context import FSMContext
 
-import requests
+from timezonefinder import TimezoneFinder
 
 from db.orm.session import AsyncSessionLocal
 from db.orm.models.user import User
@@ -17,16 +17,22 @@ router = Router()
 
 @router.message(CommandStart())
 async def start_cmd(msg: Message, state: FSMContext):
-    kb = ReplyKeyboardMarkup(
-        keyboard=[
-            [KeyboardButton(text=_("SEND_LOCATION"), request_location=True)]
-        ],
-        resize_keyboard=True,
-        one_time_keyboard=True
-    )
+    async with AsyncSessionLocal() as conn:
+        res = await conn.execute(select(User).where(User.tg_id == msg.from_user.id))
+        user = res.scalar_one_or_none()
+        if not user:
+            kb = ReplyKeyboardMarkup(
+                keyboard=[
+                    [KeyboardButton(text=_("SEND_LOCATION"), request_location=True)]
+                ],
+                resize_keyboard=True,
+                one_time_keyboard=True
+            )
 
-    await msg.answer(_("GREETING"), reply_markup=kb)
-    await state.set_state(RegisterStates.location)
+            await msg.answer(_("GREETING"), reply_markup=kb)
+            await state.set_state(RegisterStates.location)
+        else:
+            await msg.answer(_("GREETING"))
 
 @router.message(Command("help"))
 async def help_cmd(msg: Message):
@@ -41,11 +47,11 @@ async def set_location(msg: Message, state: FSMContext):
             if not usr:
                 lat = msg.location.latitude
                 lon = msg.location.longitude
-                r = requests.get(f"https://timeapi.io/api/TimeZone/coordinate?latitude={lat}&longitude={lon}")
-                timezone = r.json()['timeZone']
+
+                tf = TimezoneFinder()
+                timezone = tf.timezone_at(lat=lat, lng=lon)
                 await msg.answer(f"{timezone}", reply_markup=ReplyKeyboardRemove())
                 await state.clear()
-
                 user = User(tg_id=msg.from_user.id, lang_code=msg.from_user.language_code, timezone=timezone)
 
                 conn.add(user)

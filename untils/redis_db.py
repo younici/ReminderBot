@@ -24,7 +24,7 @@ async def init_redis():
 
     return _redis_client
 
-async def get_redis_client():
+def get_redis_client() -> redis.Redis:
     return _redis_client
 
 async def preload_keys():
@@ -33,5 +33,6 @@ async def preload_keys():
 
         users = res.scalars().all()
 
-        for usr in users:
-            await _redis_client.set(f"user:{usr.id}:lang", usr.lang_code)
+        if users:
+            for usr in users:
+                await _redis_client.set(f"user:{usr.tg_id}:lang", usr.lang_code)

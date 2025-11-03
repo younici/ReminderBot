@@ -5,6 +5,7 @@ import asyncio
 from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.redis import RedisStorage
 
+from remind.reminder import reminder_loop
 from untils.redis_db import preload_keys, init_redis
 
 from untils.i18n import i18n_middleware
@@ -21,8 +22,6 @@ from handlers import remind, start, language
 
 async def main():
     global dp
-
-    await init_db()
     redis_client = await init_redis()
 
     if not redis_client:
@@ -42,6 +41,13 @@ async def main():
 
     await dp.start_polling(bot)
 
+async def start_all():
+    await init_db()
+
+    main_task = asyncio.create_task(main())
+    reminder_task = asyncio.create_task(reminder_loop(bot))
+    await asyncio.gather(main_task, reminder_task)
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    asyncio.run(start_all())
 
