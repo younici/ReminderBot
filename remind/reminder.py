@@ -23,9 +23,12 @@ async def reminder_loop(bot: Bot):
             result = await conn.execute(query)
 
             reminds = result.scalars().all()
-
             for r in reminds:
-                await bot.send_message(chat_id=r.user_id, text=r.text)
+                try:
+                    await bot.send_message(chat_id=r.user_id, text=r.text)
+                except Exception as e:
+                    print(f"не удалось отправить сообщение для {r.user_id} \n\n {e.with_traceback(e.__traceback__)}")
+
                 r.is_send = True
 
             await conn.commit()
