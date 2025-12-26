@@ -1,3 +1,4 @@
+import asyncio
 from zoneinfo import ZoneInfo
 
 from aiogram import F, Router
@@ -9,17 +10,12 @@ from sqlalchemy import select
 from db.orm.models.user import User
 from db.orm.session import AsyncSessionLocal
 from states.register_states import RegisterStates, TimezoneStates
-from untils.i18n import _
+from untils.cleanup import safe_delete, safe_delete_after, show_menu
+from untils.i18n import _, normalize_locale
 from untils.keyboards import cancel_markup, main_menu
 from untils.subscriptions import FREE_REMINDER_LIMIT
 
 router = Router()
-
-
-def _resolve_locale(msg: Message, user_locale: str | None = None) -> str:
-    if user_locale:
-        return user_locale.lower()
-    return (msg.from_user.language_code or "en").lower()
 
 
 @router.message(CommandStart())
@@ -27,12 +23,19 @@ async def start_cmd(msg: Message, state: FSMContext):
     async with AsyncSessionLocal() as conn:
         user = await conn.scalar(select(User).where(User.tg_id == msg.from_user.id))
 
-    locale = _resolve_locale(msg, user.lang_code if user else None)
+    locale = normalize_locale(user.lang_code if user else msg.from_user.language_code)
 
-    if user:
+    if user and user.timezone:
         await msg.answer(_("GREETING", locale=locale))
-        await msg.answer(_("MENU_PROMPT", locale=locale), reply_markup=main_menu(locale))
+        await show_menu(msg, _("MENU_PROMPT", locale=locale), main_menu(locale))
         return
+    else:
+        # force registration if user is missing or has no timezone
+        if user:
+            async with AsyncSessionLocal() as conn:
+                user.timezone = None
+                conn.add(user)
+                await conn.commit()
 
     await state.set_state(RegisterStates.timezone)
     await msg.answer(_("GREETING", locale=locale))
@@ -41,12 +44,9 @@ async def start_cmd(msg: Message, state: FSMContext):
 
 @router.message(Command("help"))
 async def help_cmd(msg: Message):
-    async with AsyncSessionLocal() as conn:
-        user = await conn.scalar(select(User).where(User.tg_id == msg.from_user.id))
-
-    locale = _resolve_locale(msg, user.lang_code if user else None)
-    await msg.answer(_("HELP_ANSWER", locale=locale).format(limit=FREE_REMINDER_LIMIT))
-    await msg.answer(_("MENU_PROMPT", locale=locale), reply_markup=main_menu(locale))
+    await msg.delete()
+    locale = normalize_locale(msg.from_user.language_code)
+    await show_menu(msg, _("MENU_PROMPT", locale=locale), main_menu(locale))
 
 
 @router.message(Command("menu"))
@@ -58,30 +58,20 @@ async def menu_cmd(msg: Message):
         await msg.answer(_("USER_NOT_REGISTERED"))
         return
 
-    locale = _resolve_locale(msg, user.lang_code)
+    locale = normalize_locale(user.lang_code)
     await msg.answer(_("MENU_PROMPT", locale=locale), reply_markup=main_menu(locale))
 
 
 @router.message(Command("timezone"))
 async def timezone_cmd(msg: Message, state: FSMContext):
-    async with AsyncSessionLocal() as conn:
-        user = await conn.scalar(select(User).where(User.tg_id == msg.from_user.id))
-
-    if not user:
-        await msg.answer(_("USER_NOT_REGISTERED"))
-        return
-
-    locale = _resolve_locale(msg, user.lang_code)
-    await state.set_state(TimezoneStates.timezone)
-    await msg.answer(
-        _("ASK_TIMEZONE_UPDATE", locale=locale).format(tz=user.timezone),
-        reply_markup=cancel_markup(locale),
-    )
+    await msg.delete()
+    locale = normalize_locale(msg.from_user.language_code)
+    await show_menu(msg, _("MENU_PROMPT", locale=locale), main_menu(locale))
 
 
 @router.message(RegisterStates.timezone)
 async def set_timezone(msg: Message, state: FSMContext):
-    locale = _resolve_locale(msg)
+    locale = normalize_locale(msg.from_user.language_code)
 
     tz_name = (msg.text or "").strip()
 
@@ -104,13 +94,14 @@ async def set_timezone(msg: Message, state: FSMContext):
         await conn.commit()
 
     await state.clear()
-    await msg.answer(_("TIMEZONE_SAVED", locale=locale).format(tz=tz_name))
-    await msg.answer(_("MENU_PROMPT", locale=locale), reply_markup=main_menu(locale))
+    note = await msg.answer(_("TIMEZONE_SAVED", locale=locale).format(tz=tz_name))
+    asyncio.create_task(safe_delete_after(note))
+    await show_menu(msg, _("MENU_PROMPT", locale=locale), main_menu(locale))
 
 
 @router.message(TimezoneStates.timezone)
 async def update_timezone(msg: Message, state: FSMContext):
-    locale = _resolve_locale(msg)
+    locale = normalize_locale(msg.from_user.language_code)
 
     tz_name = (msg.text or "").strip()
 
@@ -134,13 +125,15 @@ async def update_timezone(msg: Message, state: FSMContext):
 
         locale = user.lang_code or locale
 
-    await msg.answer(_("TIMEZONE_UPDATED", locale=locale).format(tz=tz_name))
+    note = await msg.answer(_("TIMEZONE_UPDATED", locale=locale).format(tz=tz_name))
+    asyncio.create_task(safe_delete_after(note))
     await state.clear()
-    await msg.answer(_("MENU_PROMPT", locale=locale), reply_markup=main_menu(locale))
+    await show_menu(msg, _("MENU_PROMPT", locale=locale), main_menu(locale))
 
 
 @router.callback_query(F.data == "menu_home")
 async def menu_home(callback: CallbackQuery, state: FSMContext):
+    await safe_delete(callback.message)
     async with AsyncSessionLocal() as conn:
         user = await conn.scalar(select(User).where(User.tg_id == callback.from_user.id))
 
@@ -149,43 +142,25 @@ async def menu_home(callback: CallbackQuery, state: FSMContext):
         await callback.message.answer(_("USER_NOT_REGISTERED"))
         return
 
-    locale = _resolve_locale(callback.message, user.lang_code)
+    locale = normalize_locale(user.lang_code if user else callback.from_user.language_code)
     await state.clear()
     await callback.answer()
-    await callback.message.answer(
-        _("MENU_PROMPT", locale=locale), reply_markup=main_menu(locale)
-    )
-
-
-@router.callback_query(F.data == "menu_help")
-async def menu_help(callback: CallbackQuery):
-    async with AsyncSessionLocal() as conn:
-        user = await conn.scalar(select(User).where(User.tg_id == callback.from_user.id))
-
-    if not user:
-        await callback.answer()
-        await callback.message.answer(_("USER_NOT_REGISTERED"))
-        return
-
-    locale = _resolve_locale(callback.message, user.lang_code)
-    await callback.answer()
-    await callback.message.answer(_("HELP_ANSWER", locale=locale).format(limit=FREE_REMINDER_LIMIT))
-    await callback.message.answer(
-        _("MENU_PROMPT", locale=locale), reply_markup=main_menu(locale)
-    )
+    await show_menu(callback.message, _("MENU_PROMPT", locale=locale), main_menu(locale))
 
 
 @router.callback_query(F.data == "menu_timezone")
 async def menu_timezone(callback: CallbackQuery, state: FSMContext):
+    await safe_delete(callback.message)
     async with AsyncSessionLocal() as conn:
         user = await conn.scalar(select(User).where(User.tg_id == callback.from_user.id))
 
     if not user:
         await callback.answer()
-        await callback.message.answer(_("USER_NOT_REGISTERED"))
+        note = await callback.message.answer(_("USER_NOT_REGISTERED"))
+        asyncio.create_task(safe_delete_after(note))
         return
 
-    locale = _resolve_locale(callback.message, user.lang_code)
+    locale = normalize_locale(user.lang_code if user else callback.from_user.language_code)
     await state.set_state(TimezoneStates.timezone)
     await callback.answer()
     await callback.message.answer(
@@ -196,16 +171,16 @@ async def menu_timezone(callback: CallbackQuery, state: FSMContext):
 
 @router.callback_query(F.data == "cancel")
 async def cancel_flow(callback: CallbackQuery, state: FSMContext):
+    await safe_delete(callback.message)
     async with AsyncSessionLocal() as conn:
         user = await conn.scalar(select(User).where(User.tg_id == callback.from_user.id))
 
-    locale = _resolve_locale(callback.message, user.lang_code if user else None)
+    locale = normalize_locale(user.lang_code if user else callback.from_user.language_code)
     await state.clear()
     await callback.answer(_("ACTION_CANCELLED", locale=locale))
 
     if user:
-        await callback.message.answer(
-            _("MENU_PROMPT", locale=locale), reply_markup=main_menu(locale)
-        )
+        await show_menu(callback.message, _("MENU_PROMPT", locale=locale), main_menu(locale))
     else:
-        await callback.message.answer(_("USER_NOT_REGISTERED"))
+        note = await callback.message.answer(_("USER_NOT_REGISTERED"))
+        asyncio.create_task(safe_delete_after(note))

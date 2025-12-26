@@ -4,6 +4,9 @@ from datetime import datetime, timedelta, timezone
 FREE_REMINDER_LIMIT = int(os.getenv("FREE_REMINDER_LIMIT", 3))
 SUBSCRIPTION_DURATION_DAYS = int(os.getenv("SUBSCRIPTION_DURATION_DAYS", 30))
 SUBSCRIPTION_PRICE_STARS = int(os.getenv("SUBSCRIPTION_PRICE_STARS", 50))
+_AUTO_PREMIUM_IDS = {
+    int(x) for x in os.getenv("PREMIUM_AUTO_IDS", "").split(",") if x.strip().isdigit()
+}
 
 SUBSCRIPTION_PAYLOAD = "premium_stars_subscription"
 SUBSCRIPTION_TITLE = os.getenv("SUBSCRIPTION_TITLE", "ReminderBot Premium")
@@ -14,6 +17,8 @@ SUBSCRIPTION_DESCRIPTION = os.getenv(
 
 
 def is_premium_active(user) -> bool:
+    if user and user.tg_id in _AUTO_PREMIUM_IDS:
+        return True
     expires = getattr(user, "premium_until", None)
     if not expires:
         return False

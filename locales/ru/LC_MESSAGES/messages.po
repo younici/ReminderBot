@@ -138,6 +138,9 @@ msgstr "⭐ Подписка"
 msgid "BTN_HELP"
 msgstr "❓ Помощь"
 
+msgid "BTN_STATS"
+msgstr "📊 Статистика"
+
 msgid "BTN_BACK"
 msgstr "⬅️ Назад в меню"
 
@@ -154,4 +157,40 @@ msgid "ASK_REMIND_TEXT"
 msgstr "Пришлите текст напоминания."
 
 msgid "ASK_REMIND_TIME"
-msgstr "Пришлите дату и время в формате dd.mm HH:MM (пример: 24.12 18:30)."
+msgstr "Пришлите дату и время: dd.mm.yyyy HH:MM или dd.mm HH:MM (если год не укажете и дата уже прошла — поставлю следующий год)."
+
+msgid "LIMIT_LEFT"
+msgstr "Осталось бесплатных напоминаний: {left} из {limit}."
+
+msgid "USE_MENU"
+msgstr "Используйте меню с кнопками для управления напоминаниями."
+
+msgid "ASK_TIME_PICK"
+msgstr "Выберите, когда напомнить:"
+
+msgid "BTN_IN_30M"
+msgstr "Через 30 минут"
+
+msgid "BTN_IN_1H"
+msgstr "Через 1 час"
+
+msgid "BTN_IN_3H"
+msgstr "Через 3 часа"
+
+msgid "BTN_MANUAL_TIME"
+msgstr "Ввести дату/время"
+
+msgid "STATS_TITLE"
+msgstr "Ваша статистика:"
+
+msgid "STATS_TOTAL"
+msgstr "Всего создано напоминаний: {total}"
+
+msgid "STATS_FREE_LEFT"
+msgstr "Осталось бесплатных напоминаний: {left}"
+
+msgid "STATS_PREMIUM_UNTIL"
+msgstr "Премиум активен до {date}"
+
+msgid "STATS_PREMIUM_NO_EXPIRY"
+msgstr "Премиум активен (без даты окончания)."

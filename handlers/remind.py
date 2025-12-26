@@ -1,4 +1,5 @@
-from datetime import datetime, timezone
+import asyncio
+from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from aiogram import F, Router
@@ -10,7 +11,8 @@ from sqlalchemy import and_, func, select
 from sqlalchemy.orm import selectinload
 
 from states.register_states import RemindStates
-from untils.i18n import _
+from untils.i18n import _, normalize_locale
+from untils.cleanup import safe_delete, safe_delete_after, show_menu
 from untils.keyboards import back_menu_markup, cancel_markup, main_menu
 from untils.subscriptions import FREE_REMINDER_LIMIT, is_premium_active
 
@@ -23,17 +25,74 @@ router = Router()
 
 def _resolve_locale(user: User | None, msg: Message) -> str:
     if user and user.lang_code:
-        return user.lang_code.lower()
-    return (msg.from_user.language_code or "en").lower()
+        return normalize_locale(user.lang_code)
+    return normalize_locale(msg.from_user.language_code)
 
 
 def _parse_scheduled_time(raw_time: str, tz: ZoneInfo):
     now_in_tz = datetime.now(tz)
-    parsed_time = datetime.strptime(raw_time.strip(), "%d.%m %H:%M")
-    scheduled_time = parsed_time.replace(year=now_in_tz.year, tzinfo=tz)
+    raw_time = raw_time.strip()
+
+    # Accept dd.mm HH:MM or dd.mm.yyyy HH:MM
+    date_part, time_part = raw_time.split(maxsplit=1)
+    date_chunks = date_part.split(".")
+
+    if len(date_chunks) == 3:
+        fmt = "%d.%m.%Y %H:%M"
+    else:
+        fmt = "%d.%m %H:%M"
+
+    parsed_time = datetime.strptime(raw_time, fmt)
+
+    if len(date_chunks) == 2:
+        scheduled_time = parsed_time.replace(year=now_in_tz.year, tzinfo=tz)
+        if scheduled_time <= now_in_tz:
+            scheduled_time = scheduled_time.replace(year=now_in_tz.year + 1)
+    else:
+        scheduled_time = parsed_time.replace(tzinfo=tz)
+
     if scheduled_time <= now_in_tz:
         return None
     return scheduled_time
+
+
+async def _validate_and_save_remind(conn, user: User, remind_text: str, scheduled_time: datetime, locale: str, target):
+    active_reminds = await conn.scalar(
+        select(func.count(QuoteRemind.id)).where(
+            and_(QuoteRemind.user_id == user.id, QuoteRemind.is_send == False)
+        )
+    )
+    active_reminds = active_reminds or 0
+
+    if not is_premium_active(user) and active_reminds >= FREE_REMINDER_LIMIT:
+        await target.answer(
+            _("FREE_LIMIT_REACHED", locale=locale).format(limit=FREE_REMINDER_LIMIT)
+        )
+        return False
+
+    exists = await conn.scalar(
+        select(QuoteRemind).where(
+            and_(
+                QuoteRemind.user_id == user.id,
+                QuoteRemind.text == remind_text,
+                QuoteRemind.time == scheduled_time.astimezone(timezone.utc),
+            )
+        )
+    )
+    if exists:
+        await target.answer(_("REMIND_EXIST", locale=locale))
+        return False
+
+    new_remind = QuoteRemind(
+        user_id=user.id,
+        time=scheduled_time.astimezone(timezone.utc),
+        timezone=user.timezone,
+        text=remind_text,
+    )
+    conn.add(new_remind)
+    await conn.commit()
+    await target.answer(_("REMIND_ADDED", locale=locale))
+    return True
 
 
 async def _create_reminder_entry(
@@ -50,41 +109,9 @@ async def _create_reminder_entry(
         await target.answer(_("REMIND_TIME_INCORRECT", locale=locale))
         return False
 
-    active_reminds = await conn.scalar(
-        select(func.count(QuoteRemind.id)).where(
-            and_(QuoteRemind.user_id == user.id, QuoteRemind.is_send == False)
-        )
+    return await _validate_and_save_remind(
+        conn, user, remind_text, scheduled_time, locale, target
     )
-    active_reminds = active_reminds or 0
-
-    if not is_premium_active(user) and active_reminds >= FREE_REMINDER_LIMIT:
-        await target.answer(
-            _("FREE_LIMIT_REACHED", locale=locale).format(limit=FREE_REMINDER_LIMIT)
-        )
-        return False
-
-    utc_time = scheduled_time.astimezone(timezone.utc)
-
-    exists = await conn.scalar(
-        select(QuoteRemind).where(
-            and_(
-                QuoteRemind.user_id == user.id,
-                QuoteRemind.text == remind_text,
-                QuoteRemind.time == utc_time,
-            )
-        )
-    )
-    if exists:
-        await target.answer(_("REMIND_EXIST", locale=locale))
-        return False
-
-    new_remind = QuoteRemind(
-        user_id=user.id, time=utc_time, timezone=user.timezone, text=remind_text
-    )
-    conn.add(new_remind)
-    await conn.commit()
-    await target.answer(_("REMIND_ADDED", locale=locale))
-    return True
 
 
 async def _send_remind_list(target, user: User, locale: str):
@@ -138,6 +165,10 @@ async def _send_remind_list(target, user: User, locale: str):
 
 @router.message(Command("remind"))
 async def remind_cmd(msg: Message):
+    await safe_delete(msg)
+    locale = normalize_locale(msg.from_user.language_code)
+    await show_menu(msg, _("MENU_PROMPT", locale=locale), main_menu(locale))
+    return
     async with AsyncSessionLocal() as conn:
         user = await conn.scalar(select(User).where(User.tg_id == msg.from_user.id))
 
@@ -157,80 +188,66 @@ async def remind_cmd(msg: Message):
             return
 
         await _create_reminder_entry(conn, user, remind_text, raw_time, locale, msg)
+    try:
+        await msg.delete()
+    except Exception:
+        pass
 
 
 @router.message(Command("remind_list"))
 async def remind_list_cmd(msg: Message):
-    async with AsyncSessionLocal() as conn:
-        user = await conn.scalar(select(User).where(User.tg_id == msg.from_user.id))
-
-    if not user:
-        await msg.answer(_("USER_NOT_REGISTERED"))
-        return
-
-    locale = _resolve_locale(user, msg)
-    await _send_remind_list(msg, user, locale)
+    await safe_delete(msg)
+    locale = normalize_locale(msg.from_user.language_code)
+    await show_menu(msg, _("MENU_PROMPT", locale=locale), main_menu(locale))
 
 
 @router.message(Command("dell_remind"))
 async def dell_remind_cmd(msg: Message):
-    async with AsyncSessionLocal() as conn:
-        user = await conn.scalar(select(User).where(User.tg_id == msg.from_user.id))
-
-        if not user:
-            await msg.answer(_("USER_NOT_REGISTERED"))
-            return
-
-        locale = _resolve_locale(user, msg)
-
-        parts = msg.text.split(maxsplit=1)
-
-        if len(parts) < 2:
-            await msg.answer(_("DELETE_ID_ERR", locale=locale))
-            return
-
-        try:
-            remind_id = int(parts[1])
-        except Exception:
-            await msg.answer(_("DELETE_ID_ERR", locale=locale))
-            return
-
-        remind = await conn.scalar(
-            select(QuoteRemind).where(
-                and_(
-                    QuoteRemind.id == remind_id,
-                    QuoteRemind.user_id == user.id,
-                    QuoteRemind.is_send == False,
-                )
-            )
-        )
-
-        if not remind:
-            await msg.answer(_("REMIND_NOT_FOUND", locale=locale))
-            return
-
-        await conn.delete(remind)
-        await conn.commit()
-
-        await msg.answer(_("REMIND_DELETED", locale=locale))
+    await safe_delete(msg)
+    locale = normalize_locale(msg.from_user.language_code)
+    await show_menu(msg, _("MENU_PROMPT", locale=locale), main_menu(locale))
 
 
 @router.callback_query(F.data == "menu_create")
 async def menu_create(callback: CallbackQuery, state: FSMContext):
+    await safe_delete(callback.message)
     async with AsyncSessionLocal() as conn:
         user = await conn.scalar(select(User).where(User.tg_id == callback.from_user.id))
 
     if not user:
         await callback.answer()
-        await callback.message.answer(_("USER_NOT_REGISTERED"))
+        note = await callback.message.answer(_("USER_NOT_REGISTERED"))
+        asyncio.create_task(safe_delete_after(note))
         return
 
     locale = _resolve_locale(user, callback.message)
-    await state.set_state(RemindStates.text)
-    await callback.answer()
-    await callback.message.answer(
-        _("ASK_REMIND_TEXT", locale=locale), reply_markup=cancel_markup(locale)
+
+    active_reminds = await conn.scalar(
+        select(func.count(QuoteRemind.id)).where(
+            and_(QuoteRemind.user_id == user.id, QuoteRemind.is_send == False)
+        )
     )
+    active_reminds = active_reminds or 0
+
+    if not is_premium_active(user):
+        left = max(FREE_REMINDER_LIMIT - active_reminds, 0)
+        note = await callback.message.answer(
+            _("LIMIT_LEFT", locale=locale).format(left=left, limit=FREE_REMINDER_LIMIT),
+            reply_markup=main_menu(locale) if left == 0 else None,
+        )
+        asyncio.create_task(safe_delete_after(note))
+        if left == 0:
+            await callback.answer()
+            return
+
+        await state.set_state(RemindStates.text)
+        await callback.answer()
+        await callback.message.answer(
+            _("ASK_REMIND_TEXT", locale=locale), reply_markup=cancel_markup(locale)
+        )
+        return
+
+    await safe_delete(callback.message)
 
 
 @router.message(RemindStates.text)
@@ -252,9 +269,23 @@ async def remind_text_received(msg: Message, state: FSMContext):
 
     await state.update_data(remind_text=text)
     await state.set_state(RemindStates.time)
-    await msg.answer(
-        _("ASK_REMIND_TIME", locale=locale), reply_markup=cancel_markup(locale)
+
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text=_("BTN_IN_30M", locale=locale), callback_data="time_offset_30"),
+        InlineKeyboardButton(text=_("BTN_IN_1H", locale=locale), callback_data="time_offset_60"),
     )
+    builder.row(
+        InlineKeyboardButton(text=_("BTN_IN_3H", locale=locale), callback_data="time_offset_180"),
+        InlineKeyboardButton(text=_("BTN_MANUAL_TIME", locale=locale), callback_data="time_manual"),
+    )
+    builder.row(InlineKeyboardButton(text=_("BTN_CANCEL", locale=locale), callback_data="cancel"))
+
+    await msg.answer(_("ASK_TIME_PICK", locale=locale), reply_markup=builder.as_markup())
+    try:
+        await msg.delete()
+    except Exception:
+        pass
 
 
 @router.message(RemindStates.time)
@@ -283,11 +314,16 @@ async def remind_time_received(msg: Message, state: FSMContext):
 
     if created:
         await state.clear()
-        await msg.answer(_("MENU_PROMPT", locale=locale), reply_markup=main_menu(locale))
+        await show_menu(msg, _("MENU_PROMPT", locale=locale), main_menu(locale))
+    try:
+        await msg.delete()
+    except Exception:
+        pass
 
 
 @router.callback_query(F.data == "menu_list")
 async def menu_list(callback: CallbackQuery):
+    await safe_delete(callback.message)
     async with AsyncSessionLocal() as conn:
         user = await conn.scalar(select(User).where(User.tg_id == callback.from_user.id))
 
@@ -299,6 +335,123 @@ async def menu_list(callback: CallbackQuery):
     locale = _resolve_locale(user, callback.message)
     await callback.answer()
     await _send_remind_list(callback.message, user, locale)
+
+
+def _format_stats(total: int, left: int | None, premium_until, locale: str, is_premium: bool):
+    premium_line = ""
+    if is_premium and premium_until:
+        if premium_until.tzinfo is None:
+            premium_until = premium_until.replace(tzinfo=timezone.utc)
+        premium_line = _("STATS_PREMIUM_UNTIL", locale=locale).format(
+            date=premium_until.astimezone(timezone.utc).strftime("%d.%m %H:%M UTC")
+        )
+    elif is_premium and not premium_until:
+        premium_line = _("STATS_PREMIUM_NO_EXPIRY", locale=locale)
+    else:
+        premium_line = _("STATS_FREE_LEFT", locale=locale).format(left=left if left is not None else 0)
+
+    return "\n".join(
+        [
+            _("STATS_TITLE", locale=locale),
+            _("STATS_TOTAL", locale=locale).format(total=total),
+            premium_line,
+        ]
+    )
+
+
+@router.callback_query(F.data == "menu_stats")
+async def menu_stats(callback: CallbackQuery):
+    await safe_delete(callback.message)
+    async with AsyncSessionLocal() as conn:
+        user = await conn.scalar(select(User).where(User.tg_id == callback.from_user.id))
+
+        if not user:
+            await callback.answer()
+            note = await callback.message.answer(_("USER_NOT_REGISTERED"))
+            asyncio.create_task(safe_delete_after(note))
+            return
+
+        total = await conn.scalar(
+            select(func.count(QuoteRemind.id)).where(QuoteRemind.user_id == user.id)
+        )
+        active = await conn.scalar(
+            select(func.count(QuoteRemind.id)).where(
+                and_(QuoteRemind.user_id == user.id, QuoteRemind.is_send == False)
+            )
+        )
+
+    locale = _resolve_locale(user, callback.message)
+    is_premium = is_premium_active(user)
+    left = None
+    if not is_premium:
+        left = max(FREE_REMINDER_LIMIT - (active or 0), 0)
+
+    text = _format_stats(
+        total or 0,
+        left,
+        user.premium_until if user else None,
+        locale,
+        is_premium=is_premium,
+    )
+
+    await callback.answer()
+    await callback.message.answer(text, reply_markup=back_menu_markup(locale))
+
+
+@router.callback_query(F.data == "time_manual")
+async def time_manual(callback: CallbackQuery, state: FSMContext):
+    await safe_delete(callback.message)
+    await state.set_state(RemindStates.time)
+    locale = normalize_locale(callback.from_user.language_code)
+    await callback.answer()
+    await callback.message.answer(
+        _("ASK_REMIND_TIME", locale=locale), reply_markup=cancel_markup(locale)
+    )
+
+
+@router.callback_query(F.data.startswith("time_offset_"))
+async def time_offset(callback: CallbackQuery, state: FSMContext):
+    await safe_delete(callback.message)
+    async with AsyncSessionLocal() as conn:
+        user = await conn.scalar(select(User).where(User.tg_id == callback.from_user.id))
+
+    if not user:
+        await callback.answer()
+        await callback.message.answer(_("USER_NOT_REGISTERED"))
+        return
+
+    data = await state.get_data()
+    remind_text = data.get("remind_text", "").strip()
+    if not remind_text:
+        await callback.answer()
+        await callback.message.answer(_("ASK_REMIND_TEXT", locale=normalize_locale(callback.from_user.language_code)))
+        await state.set_state(RemindStates.text)
+        return
+
+    locale = _resolve_locale(user, callback.message)
+    try:
+        minutes = int(callback.data.split("_")[2])
+    except Exception:
+        await callback.answer()
+        return
+
+    try:
+        tz = ZoneInfo(user.timezone)
+    except Exception:
+        await callback.message.answer(_("TIMEZONE_INVALID", locale=locale))
+        await state.clear()
+        return
+
+    scheduled_time = datetime.now(tz) + timedelta(minutes=minutes)
+
+    async with AsyncSessionLocal() as conn:
+        created = await _validate_and_save_remind(
+            conn, user, remind_text, scheduled_time, locale, callback.message
+        )
+
+    if created:
+        await state.clear()
+        await show_menu(callback.message, _("MENU_PROMPT", locale=locale), main_menu(locale))
 
 
 @router.callback_query(F.data.startswith("del_"))
@@ -336,6 +489,7 @@ async def delete_remind_callback(callback: CallbackQuery):
         await conn.delete(remind)
         await conn.commit()
 
+    await safe_delete(callback.message)
     await callback.answer()
     await callback.message.answer(
         _("REMIND_DELETED", locale=locale), reply_markup=back_menu_markup(locale)

@@ -138,6 +138,9 @@ msgstr "⭐ Subscription"
 msgid "BTN_HELP"
 msgstr "❓ Help"
 
+msgid "BTN_STATS"
+msgstr "📊 Stats"
+
 msgid "BTN_BACK"
 msgstr "⬅️ Back to menu"
 
@@ -154,4 +157,40 @@ msgid "ASK_REMIND_TEXT"
 msgstr "Send the reminder text."
 
 msgid "ASK_REMIND_TIME"
-msgstr "Send date and time in format dd.mm HH:MM (example: 24.12 18:30)."
+msgstr "Send date and time: dd.mm.yyyy HH:MM or dd.mm HH:MM (year optional; if omitted and today already passed, I'll set the next year)."
+
+msgid "LIMIT_LEFT"
+msgstr "Free reminders left: {left} of {limit}."
+
+msgid "USE_MENU"
+msgstr "Use the buttons menu to manage reminders."
+
+msgid "ASK_TIME_PICK"
+msgstr "Choose when to remind:"
+
+msgid "BTN_IN_30M"
+msgstr "In 30 minutes"
+
+msgid "BTN_IN_1H"
+msgstr "In 1 hour"
+
+msgid "BTN_IN_3H"
+msgstr "In 3 hours"
+
+msgid "BTN_MANUAL_TIME"
+msgstr "Enter date/time"
+
+msgid "STATS_TITLE"
+msgstr "Your stats:"
+
+msgid "STATS_TOTAL"
+msgstr "Total reminders created: {total}"
+
+msgid "STATS_FREE_LEFT"
+msgstr "Free reminders left: {left}"
+
+msgid "STATS_PREMIUM_UNTIL"
+msgstr "Premium active until {date}"
+
+msgid "STATS_PREMIUM_NO_EXPIRY"
+msgstr "Premium is active (no expiry set)."

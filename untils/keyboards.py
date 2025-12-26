@@ -27,7 +27,7 @@ def main_menu(locale: str) -> InlineKeyboardMarkup:
             text=_("BTN_SUBSCRIBE", locale=locale), callback_data="menu_subscribe"
         ),
         InlineKeyboardButton(
-            text=_("BTN_HELP", locale=locale), callback_data="menu_help"
+            text=_("BTN_STATS", locale=locale), callback_data="menu_stats"
         ),
     )
     return builder.as_markup()

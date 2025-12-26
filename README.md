@@ -72,6 +72,26 @@ Start the bot:
 
 python main.py
 
+🐳 Docker (app + Redis)
+
+Build and run with Docker Compose:
+
+```
+docker compose up -d --build
+```
+
+Env vars are read from `.env`; Redis URL defaults to `redis://redis:6379/0`. SQLite data is persisted in `./DataBase` (mounted into the container).
+
+🚀 One-command deploy
+
+Use the provided script to clone/pull from GitHub and start in Docker:
+
+```
+REPO_URL=https://github.com/younici/ReminderBot.git APP_DIR=/opt/reminderbot bash deploy.sh
+```
+
+Edit `.env` after the first run (auto-copied from `.env.example`) and rerun `docker compose up -d` if needed.
+
 🗂️ How to Use
 
 /start: Begin registration. The bot will ask for your IANA time zone (e.g., Europe/Kyiv).
