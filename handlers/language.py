@@ -9,11 +9,7 @@ from db.orm.session import AsyncSessionLocal
 from db.orm.models.user import User
 from sqlalchemy import select
 
-from untils.redis_db import get_redis_client
-
 router = Router()
-
-redis_client = get_redis_client()
 
 AVAILABLE_LANGS = {
     "en": "English",
@@ -21,29 +17,49 @@ AVAILABLE_LANGS = {
     "uk": "Українська",
 }
 
+def _language_keyboard(locale: str):
+    builder = InlineKeyboardBuilder()
+    for code, name in AVAILABLE_LANGS.items():
+        builder.add(InlineKeyboardButton(text=name, callback_data=f"lang_{code}"))
+    builder.adjust(1)
+    builder.row(
+        InlineKeyboardButton(text=_("BTN_BACK", locale=locale), callback_data="menu_home")
+    )
+    return builder.as_markup()
+
+
 @router.message(Command("language"))
 async def choose_language(msg: Message):
-    global redis_client
-    if not redis_client:
-        redis_client = get_redis_client()
-
     async with AsyncSessionLocal() as conn:
         res = await conn.execute(select(User).where(User.tg_id == msg.from_user.id))
 
         user = res.scalar_one_or_none()
 
         if user:
-            builder = InlineKeyboardBuilder()
-            for code, name in AVAILABLE_LANGS.items():
-                builder.add(InlineKeyboardButton(text=name, callback_data=f"lang_{code}"))
-            builder.adjust(1)
-
             await msg.answer(
                 text=_("CHOOSE_LANGUAGE", locale=user.lang_code),
-                reply_markup=builder.as_markup()
+                reply_markup=_language_keyboard(user.lang_code),
             )
         else:
             await msg.answer(_("USER_NOT_REGISTERED"))
+
+
+@router.callback_query(F.data == "menu_language")
+async def choose_language_menu(callback: CallbackQuery):
+    async with AsyncSessionLocal() as conn:
+        res = await conn.execute(select(User).where(User.tg_id == callback.from_user.id))
+
+        user = res.scalar_one_or_none()
+
+        if user:
+            await callback.answer()
+            await callback.message.answer(
+                text=_("CHOOSE_LANGUAGE", locale=user.lang_code),
+                reply_markup=_language_keyboard(user.lang_code),
+            )
+        else:
+            await callback.answer()
+            await callback.message.answer(_("USER_NOT_REGISTERED"))
 
 @router.callback_query(F.data.startswith("lang_"))
 async def language_changed(callback: CallbackQuery):
@@ -57,8 +73,6 @@ async def language_changed(callback: CallbackQuery):
             await callback.answer()
             await callback.message.answer(_("LANGUAGE_CHANGED", locale=lang_code))
             await callback.message.delete()
-
-            await redis_client.set(f"user:{callback.from_user.id}:lang", lang_code)
 
             user.lang_code = lang_code
             await conn.commit()

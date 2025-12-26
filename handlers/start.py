@@ -1,73 +1,211 @@
-from aiogram import Router
+from zoneinfo import ZoneInfo
+
+from aiogram import F, Router
 from aiogram.filters import Command, CommandStart
-from aiogram.types import Message, ReplyKeyboardRemove, ReplyKeyboardMarkup, KeyboardButton
 from aiogram.fsm.context import FSMContext
-
-from timezonefinder import TimezoneFinder
-
-from db.orm.session import AsyncSessionLocal
-from db.orm.models.user import User
+from aiogram.types import CallbackQuery, Message
 from sqlalchemy import select
 
+from db.orm.models.user import User
+from db.orm.session import AsyncSessionLocal
+from states.register_states import RegisterStates, TimezoneStates
 from untils.i18n import _
-
-from states.register_states import RegisterStates
-from untils.redis_db import get_redis_client
-
-redis = get_redis_client()
+from untils.keyboards import cancel_markup, main_menu
+from untils.subscriptions import FREE_REMINDER_LIMIT
 
 router = Router()
 
-_tf = TimezoneFinder(in_memory=True)
+
+def _resolve_locale(msg: Message, user_locale: str | None = None) -> str:
+    if user_locale:
+        return user_locale.lower()
+    return (msg.from_user.language_code or "en").lower()
+
 
 @router.message(CommandStart())
 async def start_cmd(msg: Message, state: FSMContext):
     async with AsyncSessionLocal() as conn:
-        res = await conn.execute(select(User).where(User.tg_id == msg.from_user.id))
-        user = res.scalar_one_or_none()
-        if not user:
-            kb = ReplyKeyboardMarkup(
-                keyboard=[
-                    [KeyboardButton(text=_("SEND_LOCATION"), request_location=True)]
-                ],
-                resize_keyboard=True,
-                one_time_keyboard=True
-            )
+        user = await conn.scalar(select(User).where(User.tg_id == msg.from_user.id))
 
-            await msg.answer(_("GREETING"), reply_markup=kb)
-            await state.set_state(RegisterStates.location)
-        else:
-            await msg.answer(_("GREETING", locale=user.lang_code))
+    locale = _resolve_locale(msg, user.lang_code if user else None)
+
+    if user:
+        await msg.answer(_("GREETING", locale=locale))
+        await msg.answer(_("MENU_PROMPT", locale=locale), reply_markup=main_menu(locale))
+        return
+
+    await state.set_state(RegisterStates.timezone)
+    await msg.answer(_("GREETING", locale=locale))
+    await msg.answer(_("ASK_TIMEZONE", locale=locale), reply_markup=cancel_markup(locale))
+
 
 @router.message(Command("help"))
 async def help_cmd(msg: Message):
-    global redis
-    if not redis:
-        redis = get_redis_client()
+    async with AsyncSessionLocal() as conn:
+        user = await conn.scalar(select(User).where(User.tg_id == msg.from_user.id))
 
-    await msg.answer(_("HELP_ANSWER", locale=await redis.get(f"user:{msg.from_user.id}:lang")))
-
-@router.message(RegisterStates.location)
-async def set_location(msg: Message, state: FSMContext):
-    if msg.location:
-        async with AsyncSessionLocal() as conn:
-            result =  await conn.execute(select(User).where(User.tg_id == msg.from_user.id))
-            usr = result.scalar_one_or_none()
-            if not usr:
-                lat = msg.location.latitude
-                lon = msg.location.longitude
+    locale = _resolve_locale(msg, user.lang_code if user else None)
+    await msg.answer(_("HELP_ANSWER", locale=locale).format(limit=FREE_REMINDER_LIMIT))
+    await msg.answer(_("MENU_PROMPT", locale=locale), reply_markup=main_menu(locale))
 
 
-                timezone = _tf.timezone_at(lat=lat, lng=lon)
-                await msg.answer(f"{timezone}", reply_markup=ReplyKeyboardRemove())
-                await state.clear()
-                user = User(tg_id=msg.from_user.id, lang_code=msg.from_user.language_code, timezone=timezone)
+@router.message(Command("menu"))
+async def menu_cmd(msg: Message):
+    async with AsyncSessionLocal() as conn:
+        user = await conn.scalar(select(User).where(User.tg_id == msg.from_user.id))
 
-                await redis.set(f"user:{msg.from_user.id}:lang", msg.from_user.language_code)
+    if not user:
+        await msg.answer(_("USER_NOT_REGISTERED"))
+        return
 
-                conn.add(user)
-                await conn.commit()
-            else:
-                await msg.answer(_("ALREADY_REGISTERED", locale=usr.lang_code), reply_markup=ReplyKeyboardRemove())
+    locale = _resolve_locale(msg, user.lang_code)
+    await msg.answer(_("MENU_PROMPT", locale=locale), reply_markup=main_menu(locale))
+
+
+@router.message(Command("timezone"))
+async def timezone_cmd(msg: Message, state: FSMContext):
+    async with AsyncSessionLocal() as conn:
+        user = await conn.scalar(select(User).where(User.tg_id == msg.from_user.id))
+
+    if not user:
+        await msg.answer(_("USER_NOT_REGISTERED"))
+        return
+
+    locale = _resolve_locale(msg, user.lang_code)
+    await state.set_state(TimezoneStates.timezone)
+    await msg.answer(
+        _("ASK_TIMEZONE_UPDATE", locale=locale).format(tz=user.timezone),
+        reply_markup=cancel_markup(locale),
+    )
+
+
+@router.message(RegisterStates.timezone)
+async def set_timezone(msg: Message, state: FSMContext):
+    locale = _resolve_locale(msg)
+
+    tz_name = (msg.text or "").strip()
+
+    try:
+        ZoneInfo(tz_name)
+    except Exception:
+        await msg.answer(_("TIMEZONE_INVALID", locale=locale))
+        return
+
+    async with AsyncSessionLocal() as conn:
+        existing = await conn.scalar(select(User).where(User.tg_id == msg.from_user.id))
+        if existing:
+            await msg.answer(_("ALREADY_REGISTERED", locale=existing.lang_code or locale))
+            await state.clear()
+            return
+
+        user = User(tg_id=msg.from_user.id, lang_code=locale, timezone=tz_name)
+
+        conn.add(user)
+        await conn.commit()
+
+    await state.clear()
+    await msg.answer(_("TIMEZONE_SAVED", locale=locale).format(tz=tz_name))
+    await msg.answer(_("MENU_PROMPT", locale=locale), reply_markup=main_menu(locale))
+
+
+@router.message(TimezoneStates.timezone)
+async def update_timezone(msg: Message, state: FSMContext):
+    locale = _resolve_locale(msg)
+
+    tz_name = (msg.text or "").strip()
+
+    try:
+        ZoneInfo(tz_name)
+    except Exception:
+        await msg.answer(_("TIMEZONE_INVALID", locale=locale))
+        return
+
+    async with AsyncSessionLocal() as conn:
+        user = await conn.scalar(select(User).where(User.tg_id == msg.from_user.id))
+
+        if not user:
+            await msg.answer(_("USER_NOT_REGISTERED"))
+            await state.clear()
+            return
+
+        user.timezone = tz_name
+        conn.add(user)
+        await conn.commit()
+
+        locale = user.lang_code or locale
+
+    await msg.answer(_("TIMEZONE_UPDATED", locale=locale).format(tz=tz_name))
+    await state.clear()
+    await msg.answer(_("MENU_PROMPT", locale=locale), reply_markup=main_menu(locale))
+
+
+@router.callback_query(F.data == "menu_home")
+async def menu_home(callback: CallbackQuery, state: FSMContext):
+    async with AsyncSessionLocal() as conn:
+        user = await conn.scalar(select(User).where(User.tg_id == callback.from_user.id))
+
+    if not user:
+        await callback.answer()
+        await callback.message.answer(_("USER_NOT_REGISTERED"))
+        return
+
+    locale = _resolve_locale(callback.message, user.lang_code)
+    await state.clear()
+    await callback.answer()
+    await callback.message.answer(
+        _("MENU_PROMPT", locale=locale), reply_markup=main_menu(locale)
+    )
+
+
+@router.callback_query(F.data == "menu_help")
+async def menu_help(callback: CallbackQuery):
+    async with AsyncSessionLocal() as conn:
+        user = await conn.scalar(select(User).where(User.tg_id == callback.from_user.id))
+
+    if not user:
+        await callback.answer()
+        await callback.message.answer(_("USER_NOT_REGISTERED"))
+        return
+
+    locale = _resolve_locale(callback.message, user.lang_code)
+    await callback.answer()
+    await callback.message.answer(_("HELP_ANSWER", locale=locale).format(limit=FREE_REMINDER_LIMIT))
+    await callback.message.answer(
+        _("MENU_PROMPT", locale=locale), reply_markup=main_menu(locale)
+    )
+
+
+@router.callback_query(F.data == "menu_timezone")
+async def menu_timezone(callback: CallbackQuery, state: FSMContext):
+    async with AsyncSessionLocal() as conn:
+        user = await conn.scalar(select(User).where(User.tg_id == callback.from_user.id))
+
+    if not user:
+        await callback.answer()
+        await callback.message.answer(_("USER_NOT_REGISTERED"))
+        return
+
+    locale = _resolve_locale(callback.message, user.lang_code)
+    await state.set_state(TimezoneStates.timezone)
+    await callback.answer()
+    await callback.message.answer(
+        _("ASK_TIMEZONE_UPDATE", locale=locale).format(tz=user.timezone),
+        reply_markup=cancel_markup(locale),
+    )
+
+
+@router.callback_query(F.data == "cancel")
+async def cancel_flow(callback: CallbackQuery, state: FSMContext):
+    async with AsyncSessionLocal() as conn:
+        user = await conn.scalar(select(User).where(User.tg_id == callback.from_user.id))
+
+    locale = _resolve_locale(callback.message, user.lang_code if user else None)
+    await state.clear()
+    await callback.answer(_("ACTION_CANCELLED", locale=locale))
+
+    if user:
+        await callback.message.answer(
+            _("MENU_PROMPT", locale=locale), reply_markup=main_menu(locale)
+        )
     else:
-        await msg.answer(_("GET_LOCATION_ERR"), await redis.get(f"user:{msg.from_user.id}:lang"))
+        await callback.message.answer(_("USER_NOT_REGISTERED"))

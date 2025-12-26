@@ -2,10 +2,6 @@ import os
 
 import redis.asyncio as redis
 
-from db.orm.session import AsyncSessionLocal
-from db.orm.models.user import User
-from sqlalchemy import select
-
 _redis_client: redis.Redis | None = None
 
 async def init_redis():
@@ -24,13 +20,3 @@ async def init_redis():
 
 def get_redis_client() -> redis.Redis:
     return _redis_client
-
-async def preload_keys():
-    async with AsyncSessionLocal() as conn:
-        res = await conn.execute(select(User))
-
-        users = res.scalars().all()
-
-        if users:
-            for usr in users:
-                await _redis_client.set(f"user:{usr.tg_id}:lang", usr.lang_code)

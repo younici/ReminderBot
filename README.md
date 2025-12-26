@@ -4,7 +4,7 @@ A Telegram bot built with aiogram, providing multilingual support, time-zone awa
 
 🧩 Features
 
-Register user with location to detect time zone
+Register user by manually providing time zone (IANA name)
 
 Set one-time reminders with time zone conversion (e.g., /remind Do something; 04.11 18:00)
 
@@ -13,6 +13,10 @@ Store reminders in UTC internally and send at the correct local time
 View a list of active reminders (/remind_list)
 
 Delete a reminder by its ID (/dell_remind <id>)
+
+Free plan limited to 3 active reminders; Telegram Stars subscription unlocks unlimited
+
+Inline button menu for all actions (create, list, delete, time zone, language, subscribe)
 
 Change interface language (/language) – available languages: English, Russian, Ukrainian
 
@@ -28,6 +32,7 @@ Redis server
 PostgreSQL or SQLite (depending on your db setup)
 
 A Telegram bot token from BotFather
+Telegram Stars provider token (for payments)
 
 Setup
 
@@ -42,6 +47,13 @@ Create a .env file in the root directory with the following variables:
 BOT_TOKEN=your_telegram_bot_token
 REDIS_URL=redis://localhost:6379/0
 DATABASE_URL=sqlite+aiosqlite:///./db.sqlite3   # Or your PostgreSQL URL
+STARS_PROVIDER_TOKEN=your_telegram_stars_provider_token
+# Optional overrides
+FREE_REMINDER_LIMIT=3
+SUBSCRIPTION_PRICE_STARS=50
+SUBSCRIPTION_DURATION_DAYS=30
+SUBSCRIPTION_TITLE="ReminderBot Premium"
+SUBSCRIPTION_DESCRIPTION="Unlimited reminders for 30 days. Paid with Telegram Stars."
 
 
 Install dependencies:
@@ -62,7 +74,11 @@ python main.py
 
 🗂️ How to Use
 
-/start: Begin registration. The bot will ask for your location to detect your time zone.
+/start: Begin registration. The bot will ask for your IANA time zone (e.g., Europe/Kyiv).
+
+/menu: Open the inline menu with buttons for all actions.
+
+/timezone: Change your time zone.
 
 /remind <text>; dd.mm HH:MM: Create a reminder scheduled for the given local date and time.
 
@@ -70,17 +86,19 @@ python main.py
 
 /dell_remind <id>: Delete a specific reminder by its ID.
 
+/subscribe: Buy unlimited reminders with Telegram Stars (default 30-day subscription).
+
 /language: Change your interface language.
 
 /help: Get a list of available commands in your language.
 
 🧠 How It Works
 
-User location is collected once to determine their IANA time zone using timezonefinder.
+User supplies their time zone once; reminders use that zone and convert to UTC internally.
 
 Reminders are converted to UTC when saved, so they fire at the correct time regardless of DST or server location.
 
-Redis is used to store session data (language preference) and optionally caching.
+Redis is used only for FSM/state storage.
 
 SQLAlchemy with async sessions is used for storage of users and reminders, with proper relationships (User.remind_list) and time-zone aware logic.
 
@@ -93,6 +111,8 @@ In .po files you have multilingual strings — for example "HELP_ANSWER" key hol
 Use proper locale fallback logic if user’s language isn’t found: default to en.
 
 When scheduling reminders, ensure user time is strictly in the future relative to their time zone.
+
+Telegram Stars is used for subscriptions: invoice currency is XTR. The free plan allows 3 active reminders; premium removes the cap.
 
 ✅ To-Do / Future Improvements
 

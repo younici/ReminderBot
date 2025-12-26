@@ -13,7 +13,7 @@ msgstr ""
 "Plural-Forms: nplurals=2; plural=(n != 1);\n"
 
 msgid "GREETING"
-msgstr "Hi! I'm ReminderBot — I can schedule one-off reminders. Share your location and send /help to see the commands."
+msgstr "Hi! I'm ReminderBot — I can schedule one-off reminders. Send me your time zone (e.g., Europe/Kyiv) and /help to see the commands."
 
 msgid "SEND_LOCATION"
 msgstr "Share location"
@@ -21,12 +21,17 @@ msgstr "Share location"
 msgid "HELP_ANSWER"
 msgstr ""
 "💡 Available commands:\n"
-"/start — register and share your geolocation\n"
+"/start — register and set your time zone\n"
+"/menu — open the button menu\n"
+"/timezone — change your time zone\n"
 "/remind <text>; dd.mm HH:MM — create a reminder (e.g., /remind buy milk; 23.12 12:00)\n"
 "/remind_list — show a list of all active reminders\n"
 "/dell_remind <id> — delete a reminder by its ID\n"
+"/subscribe — unlock unlimited reminders via Telegram Stars\n"
 "/language — change the interface language\n"
-"/help — show this message"
+"/help — show this message\n"
+"\n"
+"Free plan: {limit} active reminders."
 
 msgid "USER_NOT_REGISTERED"
 msgstr "Please run /start first so I can register you."
@@ -56,4 +61,97 @@ msgid "LANGUAGE_NOT_SUPPORTED"
 msgstr "That language isn't supported yet."
 
 msgid "REMIND_EXIST"
-msgstr "This reminder already exists in the database"
+msgstr "This reminder already exists in the database."
+
+msgid "DELETE_ID_ERR"
+msgstr "Send the reminder ID after the command, for example: /dell_remind 12."
+
+msgid "REMIND_NOT_FOUND"
+msgstr "I couldn't find a reminder with that ID."
+
+msgid "REMIND_DELETED"
+msgstr "Reminder deleted."
+
+msgid "REMIND_LIST_ENTRY"
+msgstr "text: {text}\ndate: {date} ({tz})\nid: {id}"
+
+msgid "REMIND_LIST_EMPTY"
+msgstr "You have no active reminders."
+
+msgid "TIMEZONE_INVALID"
+msgstr "I can't parse that time zone. Use the IANA format, e.g., Europe/Kyiv or America/New_York."
+
+msgid "TIMEZONE_SAVED"
+msgstr "Great! I'll use {tz} for your reminders."
+
+msgid "TIMEZONE_UPDATED"
+msgstr "Time zone updated to {tz}."
+
+msgid "ASK_TIMEZONE"
+msgstr "Send your time zone in IANA format (for example, Europe/Kyiv or America/New_York)."
+
+msgid "ASK_TIMEZONE_UPDATE"
+msgstr "Your current time zone is {tz}. Send a new one in IANA format."
+
+msgid "FREE_LIMIT_REACHED"
+msgstr "The free plan includes {limit} active reminders. Subscribe via /subscribe to add more."
+
+msgid "SUB_ALREADY_ACTIVE"
+msgstr "You already have an active subscription until {date}."
+
+msgid "SUB_PROMPT"
+msgstr "I'll send an invoice for {price}⭐ to unlock unlimited reminders."
+
+msgid "PREMIUM_LABEL"
+msgstr "Unlimited reminders"
+
+msgid "SUBSCRIPTION_TITLE"
+msgstr "ReminderBot Premium"
+
+msgid "SUBSCRIPTION_DESCRIPTION"
+msgstr "Unlimited reminders for 30 days. Paid with Telegram Stars."
+
+msgid "SUB_INVOICE_ERROR"
+msgstr "I couldn't send the invoice. Please try again later."
+
+msgid "SUB_SUCCESS"
+msgstr "Payment received! Subscription is active until {date}."
+
+msgid "MENU_PROMPT"
+msgstr "Choose what to do:"
+
+msgid "BTN_CREATE"
+msgstr "➕ New reminder"
+
+msgid "BTN_LIST"
+msgstr "📋 My reminders"
+
+msgid "BTN_TIMEZONE"
+msgstr "🌐 Time zone"
+
+msgid "BTN_LANGUAGE"
+msgstr "🌍 Language"
+
+msgid "BTN_SUBSCRIBE"
+msgstr "⭐ Subscription"
+
+msgid "BTN_HELP"
+msgstr "❓ Help"
+
+msgid "BTN_BACK"
+msgstr "⬅️ Back to menu"
+
+msgid "BTN_CANCEL"
+msgstr "✖️ Cancel"
+
+msgid "BTN_DELETE"
+msgstr "🗑 Delete #{id}"
+
+msgid "ACTION_CANCELLED"
+msgstr "Cancelled."
+
+msgid "ASK_REMIND_TEXT"
+msgstr "Send the reminder text."
+
+msgid "ASK_REMIND_TIME"
+msgstr "Send date and time in format dd.mm HH:MM (example: 24.12 18:30)."

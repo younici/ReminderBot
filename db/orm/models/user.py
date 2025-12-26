@@ -1,7 +1,7 @@
 from typing import List
 
 from db.orm.base import Base
-from sqlalchemy import Column, Integer, String
+from sqlalchemy import Column, Integer, String, DateTime
 from sqlalchemy.orm import relationship, Mapped
 
 from db.orm.models.remind_quote import QuoteRemind
@@ -13,7 +13,8 @@ class User(Base):
     tg_id = Column(Integer, nullable=False, unique=True)
 
     timezone = Column(String, default="Europe/Kyiv")
-    lang_code = Column(String, default="EN")
+    lang_code = Column(String, default="en")
+    premium_until = Column(DateTime(timezone=True), nullable=True)
 
     remind_list: Mapped[List["QuoteRemind"]] = relationship(
         "QuoteRemind",

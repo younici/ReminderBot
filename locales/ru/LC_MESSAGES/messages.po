@@ -13,7 +13,7 @@ msgstr ""
 "Plural-Forms: nplurals=3; plural=(n%10==1 && n%100!=11 ? 0 : n%10>=2 && n%10<=4 && (n%100<10 || n%100>=20) ? 1 : 2);\n"
 
 msgid "GREETING"
-msgstr "Привет! Я ReminderBot — помогу не забыть важные дела. Отправьте геолокацию и команду /help, чтобы посмотреть возможности."
+msgstr "Привет! Я ReminderBot — помогу не забыть важные дела. Укажи свой часовой пояс (например, Europe/Moscow) и отправь /help, чтобы посмотреть команды."
 
 msgid "SEND_LOCATION"
 msgstr "Отправить геолокацию"
@@ -21,12 +21,17 @@ msgstr "Отправить геолокацию"
 msgid "HELP_ANSWER"
 msgstr ""
 "💡 Доступные команды:\n"
-"/start — пройти регистрацию и поделиться геолокацией\n"
+"/start — регистрация и указание часового пояса\n"
+"/menu — открыть меню с кнопками\n"
+"/timezone — изменить часовой пояс\n"
 "/remind <текст>; dd.mm HH:MM — создать напоминание (пример: /remind купить молоко; 23.12 12:00)\n"
 "/remind_list — показать список всех активных напоминаний\n"
 "/dell_remind <id> — удалить напоминание по его ID\n"
+"/subscribe — безлимитные напоминания за Telegram Stars\n"
 "/language — изменить язык интерфейса\n"
-"/help — показать это сообщение"
+"/help — показать это сообщение\n"
+"\n"
+"Бесплатно доступно {limit} активных напоминаний."
 
 msgid "USER_NOT_REGISTERED"
 msgstr "Сначала выполните /start, чтобы я запомнил вас."
@@ -56,4 +61,97 @@ msgid "LANGUAGE_NOT_SUPPORTED"
 msgstr "Этот язык пока не поддерживается."
 
 msgid "REMIND_EXIST"
-msgstr "Это упоминание уже есть в базе данных"
+msgstr "Это напоминание уже есть в базе данных."
+
+msgid "DELETE_ID_ERR"
+msgstr "Пришлите ID после команды, например: /dell_remind 12."
+
+msgid "REMIND_NOT_FOUND"
+msgstr "Напоминание с таким ID не найдено."
+
+msgid "REMIND_DELETED"
+msgstr "Напоминание удалено."
+
+msgid "REMIND_LIST_ENTRY"
+msgstr "текст: {text}\nдата: {date} ({tz})\nid: {id}"
+
+msgid "REMIND_LIST_EMPTY"
+msgstr "Активных напоминаний нет."
+
+msgid "TIMEZONE_INVALID"
+msgstr "Не удалось распознать часовой пояс. Используйте формат IANA, например Europe/Kyiv или America/New_York."
+
+msgid "TIMEZONE_SAVED"
+msgstr "Сохранил! Буду использовать {tz} для напоминаний."
+
+msgid "TIMEZONE_UPDATED"
+msgstr "Часовой пояс обновлён на {tz}."
+
+msgid "ASK_TIMEZONE"
+msgstr "Укажи свой часовой пояс в формате IANA (например, Europe/Kyiv или America/New_York)."
+
+msgid "ASK_TIMEZONE_UPDATE"
+msgstr "Сейчас установлен {tz}. Отправь новый часовой пояс в формате IANA."
+
+msgid "FREE_LIMIT_REACHED"
+msgstr "На бесплатном тарифе доступно {limit} активных напоминаний. Оформи подписку через /subscribe, чтобы добавить больше."
+
+msgid "SUB_ALREADY_ACTIVE"
+msgstr "Подписка уже активна до {date}."
+
+msgid "SUB_PROMPT"
+msgstr "Отправляю счёт на {price}⭐ за безлимитные напоминания."
+
+msgid "PREMIUM_LABEL"
+msgstr "Безлимитные напоминания"
+
+msgid "SUBSCRIPTION_TITLE"
+msgstr "Премиум ReminderBot"
+
+msgid "SUBSCRIPTION_DESCRIPTION"
+msgstr "Безлимитные напоминания на 30 дней. Оплата через Telegram Stars."
+
+msgid "SUB_INVOICE_ERROR"
+msgstr "Не удалось отправить счёт. Попробуйте позже."
+
+msgid "SUB_SUCCESS"
+msgstr "Оплата прошла! Подписка активна до {date}."
+
+msgid "MENU_PROMPT"
+msgstr "Выберите действие:"
+
+msgid "BTN_CREATE"
+msgstr "➕ Новое напоминание"
+
+msgid "BTN_LIST"
+msgstr "📋 Мои напоминания"
+
+msgid "BTN_TIMEZONE"
+msgstr "🌐 Часовой пояс"
+
+msgid "BTN_LANGUAGE"
+msgstr "🌍 Язык"
+
+msgid "BTN_SUBSCRIBE"
+msgstr "⭐ Подписка"
+
+msgid "BTN_HELP"
+msgstr "❓ Помощь"
+
+msgid "BTN_BACK"
+msgstr "⬅️ Назад в меню"
+
+msgid "BTN_CANCEL"
+msgstr "✖️ Отмена"
+
+msgid "BTN_DELETE"
+msgstr "🗑 Удалить #{id}"
+
+msgid "ACTION_CANCELLED"
+msgstr "Отменено."
+
+msgid "ASK_REMIND_TEXT"
+msgstr "Пришлите текст напоминания."
+
+msgid "ASK_REMIND_TIME"
+msgstr "Пришлите дату и время в формате dd.mm HH:MM (пример: 24.12 18:30)."

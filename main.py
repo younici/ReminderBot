@@ -6,7 +6,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.fsm.storage.redis import RedisStorage
 
 from remind.reminder import reminder_loop
-from untils.redis_db import preload_keys, init_redis
+from untils.redis_db import init_redis
 
 from untils.i18n import i18n_middleware
 
@@ -18,7 +18,7 @@ token = os.getenv("BOT_TOKEN")
 bot = Bot(token=token)
 dp = None
 
-from handlers import remind, start, language
+from handlers import remind, start, language, subscribe
 
 async def main():
     global dp
@@ -32,12 +32,10 @@ async def main():
     storage = RedisStorage(redis=redis_client)
     dp = Dispatcher(storage=storage)
 
-    await preload_keys()
-
     dp.message.middleware(i18n_middleware)
     dp.callback_query.middleware(i18n_middleware)
 
-    dp.include_routers(remind.router, start.router, language.router)
+    dp.include_routers(remind.router, start.router, language.router, subscribe.router)
 
     await dp.start_polling(bot)
 
