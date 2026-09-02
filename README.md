@@ -46,7 +46,8 @@ Create a .env file in the root directory with the following variables:
 
 BOT_TOKEN=your_telegram_bot_token
 REDIS_URL=redis://localhost:6379/0
-DATABASE_URL=sqlite+aiosqlite:///./db.sqlite3   # Or your PostgreSQL URL
+DATABASE_URL=sqlite+aiosqlite:///./db.sqlite3
+ # Or your PostgreSQL URL
 STARS_PROVIDER_TOKEN=your_telegram_stars_provider_token
 # Optional overrides
 FREE_REMINDER_LIMIT=3
